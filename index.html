@@ -1,64 +1,85 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARC-AGI Puzzle Editor</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <div class="container">
-        <h1>ARC-AGI Puzzle Editor</h1>
-        
-        <div class="controls">
-            <div class="control-group">
-                <label for="default-grid-width">Default Grid Width:</label>
-                <input type="number" id="default-grid-width" min="1" max="30" value="8">
-            </div>
-            <div class="control-group">
-                <label for="default-grid-height">Default Grid Height:</label>
-                <input type="number" id="default-grid-height" min="1" max="30" value="8">
-            </div>
-            <div class="control-group">
-                <label for="num-examples">Number of Examples:</label>
-                <input type="number" id="num-examples" min="1" max="10" value="3">
-            </div>
-            <div class="control-group">
-                <label for="show-test-output">Show Test Output:</label>
-                <input type="checkbox" id="show-test-output">
-            </div>
-            <div class="control-group">
-                <button id="reset-all-btn" class="action-button">Reset All Grids</button>
-            </div>
-        </div>
+      <h1>ARC-AGI Puzzle Editor</h1>
 
-        <div class="import-export">
-            <h3>Import/Export</h3>
-            <div class="import-export-buttons">
-                <button id="export-btn" class="action-button">Download Puzzle (JSON)</button>
-                <label for="import-file" class="action-button">Upload Puzzle (JSON)
-                    <input type="file" id="import-file" accept=".json" style="display: none;">
-                </label>
-            </div>
+      <div class="controls">
+        <div class="control-group">
+          <label for="default-grid-width">Default Grid Width:</label>
+          <input
+            type="number"
+            id="default-grid-width"
+            min="1"
+            max="30"
+            value="8"
+          />
         </div>
+        <div class="control-group">
+          <label for="default-grid-height">Default Grid Height:</label>
+          <input
+            type="number"
+            id="default-grid-height"
+            min="1"
+            max="30"
+            value="8"
+          />
+        </div>
+        <div class="control-group">
+          <label for="num-examples">Number of Examples:</label>
+          <input type="number" id="num-examples" min="1" max="10" value="3" />
+        </div>
+        <div class="control-group">
+          <label for="show-test-output">Show Test Output:</label>
+          <input type="checkbox" id="show-test-output" />
+        </div>
+        <div class="control-group">
+          <button id="reset-all-btn" class="action-button">
+            Reset All Grids
+          </button>
+        </div>
+      </div>
 
-        <div class="color-palette">
-            <h3>Color Palette</h3>
-            <div id="color-buttons"></div>
+      <div class="import-export">
+        <h3>Import/Export</h3>
+        <div class="import-export-buttons">
+          <button id="export-btn" class="action-button">
+            Download Puzzle (JSON)
+          </button>
+          <label for="import-file" class="action-button"
+            >Upload Puzzle (JSON)
+            <input
+              type="file"
+              id="import-file"
+              accept=".json"
+              style="display: none"
+            />
+          </label>
         </div>
+      </div>
 
-        <div class="examples-section">
-            <h2>Examples</h2>
-            <div id="examples-container"></div>
-        </div>
+      <div class="color-palette">
+        <h3>Color Palette</h3>
+        <div id="color-buttons"></div>
+      </div>
 
-        <div class="test-section">
-            <h2>Test Case</h2>
-            <div id="test-container"></div>
-        </div>
+      <div class="examples-section">
+        <h2>Examples</h2>
+        <div id="examples-container"></div>
+      </div>
+
+      <div class="test-section">
+        <h2>Test Case</h2>
+        <div id="test-container"></div>
+      </div>
     </div>
 
     <script src="editor.js"></script>
-</body>
+  </body>
 </html>
-
