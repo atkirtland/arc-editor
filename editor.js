@@ -27,7 +27,7 @@ const ARC_COLORS = [
     { id: 6, name: 'magenta', hex: '#F012BE' },
     { id: 7, name: 'orange', hex: '#FF851B' },
     { id: 8, name: 'sky', hex: '#7FDBFF' },
-    { id: 9, name: 'brown', hex: '#8B4513' }
+    { id: 9, name: 'maroon', hex: '#800000' }
 ];
 
 let selectedColor = 0; // Default to black
@@ -54,36 +54,18 @@ function setupColorPalette() {
         button.className = 'color-button';
         button.style.backgroundColor = color.hex;
         button.dataset.colorId = color.id;
-        button.title = color.name;
+        button.title = `${color.name} (Press ${color.id})`;
         
         if (color.id === selectedColor) {
             button.classList.add('selected');
         }
         
         button.addEventListener('click', () => {
-            document.querySelectorAll('.color-button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            button.classList.add('selected');
-            selectedColor = color.id;
+            selectColorById(color.id);
         });
         
         container.appendChild(button);
     });
-    
-    // Add erase button (sets to black/0)
-    const eraseButton = document.createElement('div');
-    eraseButton.className = 'color-button empty';
-    eraseButton.title = 'Erase (set to black)';
-    eraseButton.dataset.colorId = 'erase';
-    eraseButton.addEventListener('click', () => {
-        document.querySelectorAll('.color-button').forEach(btn => {
-            btn.classList.remove('selected');
-        });
-        eraseButton.classList.add('selected');
-        selectedColor = 0; // Set to black instead of null
-    });
-    container.appendChild(eraseButton);
 }
 
 // Setup control inputs
@@ -167,6 +149,36 @@ function setupControls() {
         currentPaintingGrid = null;
         currentPaintingCallback = null;
     });
+    
+    // Keyboard shortcuts for color selection (0-9)
+    document.addEventListener('keydown', (e) => {
+        // Only handle if not typing in an input field
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        const key = e.key;
+        if (key >= '0' && key <= '9') {
+            const colorId = parseInt(key);
+            if (colorId >= 0 && colorId <= 9) {
+                selectColorById(colorId);
+            }
+        }
+    });
+}
+
+// Select color by ID and update UI
+function selectColorById(colorId) {
+    selectedColor = colorId;
+    
+    // Update color button selection
+    document.querySelectorAll('.color-button').forEach(btn => {
+        btn.classList.remove('selected');
+        const btnColorId = btn.dataset.colorId;
+        if (btnColorId === colorId.toString()) {
+            btn.classList.add('selected');
+        }
+    });
 }
 
 // Initialize examples array
@@ -221,6 +233,26 @@ function initializeTest() {
     } else {
         // Initialize empty output grid for when it's enabled later
         puzzleData.test.output = createEmptyGrid(puzzleData.test.outputWidth, puzzleData.test.outputHeight);
+    }
+}
+
+// Copy input grid to output grid
+function copyInputToOutput(inputGrid, inputWidth, inputHeight, outputGridRef, outputWidth, outputHeight) {
+    // Create new output grid with input dimensions
+    const newOutputGrid = createEmptyGrid(inputWidth, inputHeight);
+    
+    // Copy input data to output
+    for (let y = 0; y < inputHeight; y++) {
+        for (let x = 0; x < inputWidth; x++) {
+            const value = inputGrid[y]?.[x];
+            newOutputGrid[y][x] = (value === null || value === undefined) ? 0 : value;
+        }
+    }
+    
+    // Replace output grid by copying all rows
+    outputGridRef.length = 0;
+    for (let y = 0; y < inputHeight; y++) {
+        outputGridRef.push([...newOutputGrid[y]]);
     }
 }
 
@@ -349,12 +381,33 @@ function renderExamples() {
         // Output grid
         const outputContainer = document.createElement('div');
         outputContainer.className = 'grid-container';
+        
         const outputHeader = document.createElement('div');
         outputHeader.style.display = 'flex';
         outputHeader.style.gap = '10px';
         outputHeader.style.alignItems = 'center';
         outputHeader.style.marginBottom = '10px';
         outputHeader.innerHTML = '<h5 style="margin: 0;">Output</h5>';
+        
+        // Copy button (in header row)
+        const copyButton = document.createElement('button');
+        copyButton.textContent = 'Copy Input';
+        copyButton.className = 'copy-button';
+        copyButton.style.padding = '4px 10px';
+        copyButton.style.background = '#667eea';
+        copyButton.style.color = 'white';
+        copyButton.style.border = 'none';
+        copyButton.style.borderRadius = '4px';
+        copyButton.style.cursor = 'pointer';
+        copyButton.style.fontSize = '0.85em';
+        copyButton.addEventListener('click', () => {
+            copyInputToOutput(example.input, example.inputWidth, example.inputHeight, 
+                            example.output, example.outputWidth, example.outputHeight);
+            example.outputWidth = example.inputWidth;
+            example.outputHeight = example.inputHeight;
+            renderAll();
+        });
+        outputHeader.appendChild(copyButton);
         
         const outputWidthControl = document.createElement('input');
         outputWidthControl.type = 'number';
@@ -470,12 +523,33 @@ function renderTest() {
     if (puzzleData.test.showOutput) {
         const outputContainer = document.createElement('div');
         outputContainer.className = 'grid-container';
+        
         const outputHeader = document.createElement('div');
         outputHeader.style.display = 'flex';
         outputHeader.style.gap = '10px';
         outputHeader.style.alignItems = 'center';
         outputHeader.style.marginBottom = '10px';
         outputHeader.innerHTML = '<h5 style="margin: 0;">Output</h5>';
+        
+        // Copy button (in header row)
+        const copyButton = document.createElement('button');
+        copyButton.textContent = 'Copy Input';
+        copyButton.className = 'copy-button';
+        copyButton.style.padding = '4px 10px';
+        copyButton.style.background = '#667eea';
+        copyButton.style.color = 'white';
+        copyButton.style.border = 'none';
+        copyButton.style.borderRadius = '4px';
+        copyButton.style.cursor = 'pointer';
+        copyButton.style.fontSize = '0.85em';
+        copyButton.addEventListener('click', () => {
+            copyInputToOutput(puzzleData.test.input, puzzleData.test.width, puzzleData.test.height,
+                            puzzleData.test.output, puzzleData.test.outputWidth, puzzleData.test.outputHeight);
+            puzzleData.test.outputWidth = puzzleData.test.width;
+            puzzleData.test.outputHeight = puzzleData.test.height;
+            renderTest();
+        });
+        outputHeader.appendChild(copyButton);
         
         const outputWidthControl = document.createElement('input');
         outputWidthControl.type = 'number';
