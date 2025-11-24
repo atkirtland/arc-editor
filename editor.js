@@ -56,6 +56,12 @@ function setupColorPalette() {
         button.dataset.colorId = color.id;
         button.title = `${color.name} (Press ${color.id})`;
         
+        // Add number indicator
+        const numberIndicator = document.createElement('span');
+        numberIndicator.className = 'color-number';
+        numberIndicator.textContent = color.id;
+        button.appendChild(numberIndicator);
+        
         if (color.id === selectedColor) {
             button.classList.add('selected');
         }
@@ -131,6 +137,12 @@ function setupControls() {
             reader.readAsText(file);
         }
     });
+    
+    // Export puzzle PNG button
+    document.getElementById('export-puzzle-png-btn').addEventListener('click', exportPuzzlePNG);
+    
+    // Export answer PNG button
+    document.getElementById('export-answer-png-btn').addEventListener('click', exportAnswerPNG);
     
     // Global mouse event handlers for drag painting
     document.addEventListener('mousedown', () => {
@@ -877,6 +889,256 @@ function exportPuzzleData() {
 function importPuzzleData(data) {
     Object.assign(puzzleData, data);
     renderAll();
+}
+
+// PNG Export Functionality
+const PNG_CELL_SIZE = 20;
+const PNG_GRID_PADDING = 0;
+const PNG_GRID_SPACING = 20;
+const PNG_LABEL_HEIGHT = 30;
+const PNG_MARGIN = 20;
+
+// Convert RGB to hex color
+function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
+// ARC colors in RGB format (matching Python script)
+const ARC_COLORS_RGB = [
+    rgbToHex(0, 0, 0),           // 0: black
+    rgbToHex(0, 116, 217),       // 1: blue
+    rgbToHex(255, 65, 54),       // 2: red
+    rgbToHex(46, 204, 64),       // 3: green
+    rgbToHex(255, 220, 0),       // 4: yellow
+    rgbToHex(170, 170, 170),     // 5: gray
+    rgbToHex(240, 18, 190),      // 6: magenta
+    rgbToHex(255, 133, 27),      // 7: orange
+    rgbToHex(127, 219, 255),     // 8: sky
+    rgbToHex(128, 0, 0)          // 9: maroon
+];
+
+function drawGridOnCanvas(ctx, grid, xOffset, yOffset, cellSize, gridPadding) {
+    if (!grid || grid.length === 0) return;
+    
+    const height = grid.length;
+    const width = grid[0]?.length || 0;
+    
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const colorId = grid[y]?.[x] ?? 0;
+            const color = ARC_COLORS_RGB[colorId] || ARC_COLORS_RGB[0];
+            
+            const cellX = xOffset + x * (cellSize + gridPadding);
+            const cellY = yOffset + y * (cellSize + gridPadding);
+            
+            // Fill cell
+            ctx.fillStyle = color;
+            ctx.fillRect(cellX, cellY, cellSize, cellSize);
+            
+            // Draw outline
+            ctx.strokeStyle = '#646464';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+        }
+    }
+}
+
+function drawBlankGridOnCanvas(ctx, width, height, xOffset, yOffset, cellSize, gridPadding) {
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const cellX = xOffset + x * (cellSize + gridPadding);
+            const cellY = yOffset + y * (cellSize + gridPadding);
+            
+            // Fill with white
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(cellX, cellY, cellSize, cellSize);
+            
+            // Draw outline
+            ctx.strokeStyle = '#c8c8c8';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+        }
+    }
+}
+
+function getGridSize(grid) {
+    if (!grid || grid.length === 0) return { width: 0, height: 0 };
+    return { width: grid[0]?.length || 0, height: grid.length };
+}
+
+function exportPuzzlePNG() {
+    // Create canvas for puzzle image (examples + test input with blank output)
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Calculate dimensions
+    let examplesWidth = 0;
+    let examplesHeight = 0;
+    const trainInfo = [];
+    
+    // Process train examples
+    puzzleData.examples.forEach((example, i) => {
+        const inputSize = getGridSize(example.input);
+        const outputSize = getGridSize(example.output);
+        
+        const gridWidth = inputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING) + 
+                         PNG_GRID_SPACING + 
+                         outputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING);
+        const gridHeight = Math.max(inputSize.height, outputSize.height) * (PNG_CELL_SIZE + PNG_GRID_PADDING);
+        
+        examplesWidth = Math.max(examplesWidth, gridWidth);
+        trainInfo.push({
+            index: i,
+            input: example.input,
+            output: example.output,
+            inputSize,
+            outputSize,
+            height: gridHeight
+        });
+        examplesHeight += gridHeight + PNG_LABEL_HEIGHT * 2 + PNG_GRID_SPACING;
+    });
+    
+    // Process test input
+    const testInputSize = getGridSize(puzzleData.test.input);
+    const testOutputSize = puzzleData.test.output && puzzleData.test.output.length > 0 
+        ? getGridSize(puzzleData.test.output)
+        : testInputSize;
+    
+    const testInputWidth = testInputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING);
+    const testOutputWidth = testOutputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING);
+    const testInputHeight = testInputSize.height * (PNG_CELL_SIZE + PNG_GRID_PADDING);
+    const testOutputHeight = testOutputSize.height * (PNG_CELL_SIZE + PNG_GRID_PADDING);
+    
+    // Test grids side by side (input + spacing + output)
+    const testWidth = testInputWidth + PNG_GRID_SPACING + testOutputWidth;
+    const testHeight = Math.max(testInputHeight, testOutputHeight);
+    
+    // Calculate total dimensions
+    const leftColumnWidth = examplesWidth + 2 * PNG_MARGIN;
+    const columnSpacing = PNG_GRID_SPACING * 2;
+    
+    // Canvas width: left column + spacing between columns + test content + right margin
+    canvas.width = leftColumnWidth + columnSpacing + testWidth + PNG_MARGIN;
+    
+    const testColumnHeight = PNG_LABEL_HEIGHT + PNG_LABEL_HEIGHT + testHeight + PNG_MARGIN;
+    canvas.height = Math.max(examplesHeight + PNG_MARGIN, testColumnHeight);
+    
+    // Fill background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Set font for labels
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#000000';
+    
+    // Draw train examples on left
+    let yPos = PNG_MARGIN;
+    
+    trainInfo.forEach(info => {
+        // Draw example label
+        ctx.fillText(`Example ${info.index + 1}`, PNG_MARGIN, yPos + 15);
+        yPos += PNG_LABEL_HEIGHT;
+        
+        // Draw "Input" label
+        ctx.fillText('Input', PNG_MARGIN, yPos + 15);
+        const inputY = yPos + PNG_LABEL_HEIGHT;
+        
+        // Draw input grid
+        drawGridOnCanvas(ctx, info.input, PNG_MARGIN, inputY, PNG_CELL_SIZE, PNG_GRID_PADDING);
+        
+        // Draw "Output" label
+        const outputX = PNG_MARGIN + info.inputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING) + PNG_GRID_SPACING;
+        ctx.fillText('Output', outputX, yPos + 15);
+        const outputY = yPos + PNG_LABEL_HEIGHT;
+        
+        // Draw output grid
+        drawGridOnCanvas(ctx, info.output, outputX, outputY, PNG_CELL_SIZE, PNG_GRID_PADDING);
+        
+        yPos += PNG_LABEL_HEIGHT + info.height + PNG_GRID_SPACING;
+    });
+    
+    // Draw test on right
+    const testX = leftColumnWidth + columnSpacing;
+    let testY = PNG_MARGIN;
+    
+    // Draw "Test" label
+    ctx.fillText('Test', testX, testY + 15);
+    testY += PNG_LABEL_HEIGHT;
+    
+    // Draw "Input" and "Output" labels side by side
+    ctx.fillText('Input', testX, testY + 15);
+    
+    // Calculate position for output label (to the right of input)
+    const testOutputX = testX + testInputWidth + PNG_GRID_SPACING;
+    ctx.fillText('Output', testOutputX, testY + 15);
+    
+    testY += PNG_LABEL_HEIGHT;
+    
+    // Draw test input grid
+    drawGridOnCanvas(ctx, puzzleData.test.input, testX, testY, PNG_CELL_SIZE, PNG_GRID_PADDING);
+    
+    // Draw blank output grid to the right of input
+    drawBlankGridOnCanvas(ctx, testOutputSize.width, testOutputSize.height, 
+                         testOutputX, testY, PNG_CELL_SIZE, PNG_GRID_PADDING);
+    
+    // Download
+    canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'arc-puzzle.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+}
+
+function exportAnswerPNG() {
+    // Check if test output exists and is not empty
+    if (!puzzleData.test.output || puzzleData.test.output.length === 0) {
+        alert('No test output to export. Please enable "Show Test Output" and create the output grid first.');
+        return;
+    }
+    
+    // Create canvas for answer image (test output only)
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const outputSize = getGridSize(puzzleData.test.output);
+    
+    canvas.width = outputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING) + 2 * PNG_MARGIN;
+    canvas.height = outputSize.height * (PNG_CELL_SIZE + PNG_GRID_PADDING) + PNG_LABEL_HEIGHT + 2 * PNG_MARGIN;
+    
+    // Fill background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Set font for label
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#000000';
+    
+    // Draw label
+    ctx.fillText('Test Output', PNG_MARGIN, PNG_MARGIN + 15);
+    
+    // Draw output grid
+    const outputY = PNG_MARGIN + PNG_LABEL_HEIGHT;
+    drawGridOnCanvas(ctx, puzzleData.test.output, PNG_MARGIN, outputY, PNG_CELL_SIZE, PNG_GRID_PADDING);
+    
+    // Download
+    canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'arc-answer.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
 }
 
 // Initialize on page load
