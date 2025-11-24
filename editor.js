@@ -1336,10 +1336,12 @@ function exportPuzzlePNG() {
     
     trainInfo.forEach(info => {
         // Draw example label
+        ctx.fillStyle = '#000000';
         ctx.fillText(`Example ${info.index + 1}`, PNG_MARGIN, yPos + 15);
         yPos += PNG_LABEL_HEIGHT;
         
         // Draw "Input" label
+        ctx.fillStyle = '#000000';
         ctx.fillText('Input', PNG_MARGIN, yPos + 15);
         const inputY = yPos + PNG_LABEL_HEIGHT;
         
@@ -1348,6 +1350,7 @@ function exportPuzzlePNG() {
         
         // Draw "Output" label
         const outputX = PNG_MARGIN + info.inputSize.width * (PNG_CELL_SIZE + PNG_GRID_PADDING) + PNG_GRID_SPACING;
+        ctx.fillStyle = '#000000';
         ctx.fillText('Output', outputX, yPos + 15);
         const outputY = yPos + PNG_LABEL_HEIGHT;
         
@@ -1362,14 +1365,17 @@ function exportPuzzlePNG() {
     let testY = PNG_MARGIN;
     
     // Draw "Test" label
+    ctx.fillStyle = '#000000';
     ctx.fillText('Test', testX, testY + 15);
     testY += PNG_LABEL_HEIGHT;
     
     // Draw "Input" and "Output" labels side by side
+    ctx.fillStyle = '#000000';
     ctx.fillText('Input', testX, testY + 15);
     
     // Calculate position for output label (to the right of input)
     const testOutputX = testX + testInputWidth + PNG_GRID_SPACING;
+    ctx.fillStyle = '#000000';
     ctx.fillText('Output', testOutputX, testY + 15);
     
     testY += PNG_LABEL_HEIGHT;
@@ -1416,9 +1422,9 @@ function exportAnswerPNG() {
     
     // Set font for label
     ctx.font = '16px Arial';
-    ctx.fillStyle = '#000000';
     
     // Draw label
+    ctx.fillStyle = '#000000';
     ctx.fillText('Test Output', PNG_MARGIN, PNG_MARGIN + 15);
     
     // Draw output grid
