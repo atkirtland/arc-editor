@@ -35,13 +35,91 @@ let isMouseDown = false; // Track mouse state for drag painting
 let currentPaintingGrid = null; // Track which grid is currently being painted
 let currentPaintingCallback = null; // Track the callback for the current grid
 
+// LocalStorage key for saving puzzle state
+const STORAGE_KEY = 'arc-editor-puzzle-state';
+
+// Save puzzle state to localStorage
+function savePuzzleState() {
+    try {
+        const state = {
+            puzzleData: puzzleData,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+        console.error('Error saving puzzle state:', error);
+    }
+}
+
+// Load puzzle state from localStorage
+function loadPuzzleState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const state = JSON.parse(saved);
+            if (state.puzzleData) {
+                // Restore puzzle data
+                Object.assign(puzzleData, state.puzzleData);
+                
+                // Update UI controls
+                document.getElementById('default-grid-width').value = puzzleData.defaultGridWidth;
+                document.getElementById('default-grid-height').value = puzzleData.defaultGridHeight;
+                document.getElementById('num-examples').value = puzzleData.numExamples;
+                document.getElementById('show-test-output').checked = puzzleData.test.showOutput || false;
+                
+                return true;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading puzzle state:', error);
+    }
+    return false;
+}
+
+// Clear saved puzzle state
+function clearPuzzleState() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+        console.error('Error clearing puzzle state:', error);
+    }
+}
+
 // Initialize the editor
 function init() {
     setupColorPalette();
     setupControls();
-    initializeExamples();
-    initializeTest();
+    setupHintsButton();
+    
+    // Try to load saved state, otherwise initialize fresh
+    const loaded = loadPuzzleState();
+    if (!loaded) {
+        initializeExamples();
+        initializeTest();
+    }
+    
     renderAll();
+    
+    // Save initial state
+    savePuzzleState();
+}
+
+// Setup hints button toggle
+function setupHintsButton() {
+    const hintsBtn = document.getElementById('hints-btn');
+    const hintsPanel = document.getElementById('hints-panel');
+    
+    if (hintsBtn && hintsPanel) {
+        hintsBtn.addEventListener('click', () => {
+            if (hintsPanel.style.display === 'none') {
+                hintsPanel.style.display = 'block';
+                hintsBtn.textContent = '💡 Hide Hints';
+            } else {
+                hintsPanel.style.display = 'none';
+                hintsBtn.textContent = '💡 Hints';
+            }
+        });
+    }
 }
 
 // Setup color palette buttons
@@ -102,6 +180,7 @@ function setupControls() {
             puzzleData.numExamples = newNum;
             initializeExamples();
             renderAll();
+            savePuzzleState();
         }
     });
     
@@ -112,6 +191,7 @@ function setupControls() {
             puzzleData.test.output = createEmptyGrid(puzzleData.test.outputWidth, puzzleData.test.outputHeight);
         }
         renderTest();
+        savePuzzleState();
     });
     
     // Reset all button
@@ -290,6 +370,9 @@ function resetAllGrids() {
         puzzleData.test.output = createEmptyGrid(puzzleData.test.outputWidth, puzzleData.test.outputHeight);
         
         renderAll();
+        
+        // Auto-save after reset
+        savePuzzleState();
     }
 }
 
@@ -361,6 +444,7 @@ function renderExamples() {
                 example.inputWidth = newWidth;
                 example.input = resizeGrid(example.input, example.inputWidth, example.inputHeight);
                 renderAll();
+                savePuzzleState();
             }
         });
         
@@ -377,6 +461,7 @@ function renderExamples() {
                 example.inputHeight = newHeight;
                 example.input = resizeGrid(example.input, example.inputWidth, example.inputHeight);
                 renderAll();
+                savePuzzleState();
             }
         });
         
@@ -418,6 +503,7 @@ function renderExamples() {
             example.outputWidth = example.inputWidth;
             example.outputHeight = example.inputHeight;
             renderAll();
+            savePuzzleState();
         });
         outputHeader.appendChild(copyButton);
         
@@ -434,6 +520,7 @@ function renderExamples() {
                 example.outputWidth = newWidth;
                 example.output = resizeGrid(example.output, example.outputWidth, example.outputHeight);
                 renderAll();
+                savePuzzleState();
             }
         });
         
@@ -450,6 +537,7 @@ function renderExamples() {
                 example.outputHeight = newHeight;
                 example.output = resizeGrid(example.output, example.outputWidth, example.outputHeight);
                 renderAll();
+                savePuzzleState();
             }
         });
         
@@ -499,6 +587,7 @@ function renderTest() {
             puzzleData.test.width = newWidth;
             puzzleData.test.input = resizeGrid(puzzleData.test.input, puzzleData.test.width, puzzleData.test.height);
             renderAll();
+            savePuzzleState();
         }
     });
     
@@ -515,6 +604,7 @@ function renderTest() {
             puzzleData.test.height = newHeight;
             puzzleData.test.input = resizeGrid(puzzleData.test.input, puzzleData.test.width, puzzleData.test.height);
             renderAll();
+            savePuzzleState();
         }
     });
     
@@ -560,6 +650,7 @@ function renderTest() {
             puzzleData.test.outputWidth = puzzleData.test.width;
             puzzleData.test.outputHeight = puzzleData.test.height;
             renderTest();
+            savePuzzleState();
         });
         outputHeader.appendChild(copyButton);
         
@@ -576,6 +667,7 @@ function renderTest() {
                 puzzleData.test.outputWidth = newWidth;
                 puzzleData.test.output = resizeGrid(puzzleData.test.output, puzzleData.test.outputWidth, puzzleData.test.outputHeight);
                 renderTest();
+                savePuzzleState();
             }
         });
         
@@ -592,6 +684,7 @@ function renderTest() {
                 puzzleData.test.outputHeight = newHeight;
                 puzzleData.test.output = resizeGrid(puzzleData.test.output, puzzleData.test.outputWidth, puzzleData.test.outputHeight);
                 renderTest();
+                savePuzzleState();
             }
         });
         
@@ -610,6 +703,55 @@ function renderTest() {
     container.appendChild(testDiv);
 }
 
+// Flood fill algorithm
+function floodFill(gridData, startY, startX, newColor) {
+    const height = gridData.length;
+    const width = gridData[0]?.length || 0;
+    
+    if (startY < 0 || startY >= height || startX < 0 || startX >= width) return;
+    
+    const targetColor = gridData[startY]?.[startX] ?? 0;
+    const normalizedNewColor = (newColor === null || newColor === undefined) ? 0 : newColor;
+    const normalizedTargetColor = (targetColor === null || targetColor === undefined) ? 0 : targetColor;
+    
+    // If the target color is the same as the new color, do nothing
+    if (normalizedTargetColor === normalizedNewColor) return;
+    
+    // Use a queue for BFS flood fill
+    const queue = [[startY, startX]];
+    const visited = new Set();
+    visited.add(`${startY},${startX}`);
+    
+    while (queue.length > 0) {
+        const [y, x] = queue.shift();
+        
+        // Set the color
+        gridData[y][x] = normalizedNewColor;
+        
+        // Check all 4 adjacent cells (up, down, left, right)
+        const neighbors = [
+            [y - 1, x],
+            [y + 1, x],
+            [y, x - 1],
+            [y, x + 1]
+        ];
+        
+        for (const [ny, nx] of neighbors) {
+            const key = `${ny},${nx}`;
+            
+            if (ny >= 0 && ny < height && nx >= 0 && nx < width && !visited.has(key)) {
+                const cellColor = gridData[ny]?.[nx] ?? 0;
+                const normalizedCellColor = (cellColor === null || cellColor === undefined) ? 0 : cellColor;
+                
+                if (normalizedCellColor === normalizedTargetColor) {
+                    visited.add(key);
+                    queue.push([ny, nx]);
+                }
+            }
+        }
+    }
+}
+
 // Handle cell click with toggle behavior
 function handleCellClick(gridData, y, x, cellElement) {
     const currentColor = gridData[y]?.[x];
@@ -626,6 +768,125 @@ function handleCellClick(gridData, y, x, cellElement) {
         gridData[y][x] = normalizedSelected;
         updateCellVisual(cellElement, normalizedSelected);
     }
+    
+    // Auto-save after cell modification
+    savePuzzleState();
+}
+
+// Handle cell right-click for flood fill
+function handleCellRightClick(gridData, y, x, gridElement) {
+    // Perform flood fill with the selected color
+    floodFill(gridData, y, x, selectedColor);
+    
+    // Re-render all cells in the grid
+    const cells = gridElement.querySelectorAll('.cell');
+    cells.forEach(cell => {
+        const cellY = parseInt(cell.dataset.y);
+        const cellX = parseInt(cell.dataset.x);
+        const colorValue = gridData[cellY]?.[cellX] ?? 0;
+        updateCellVisual(cell, colorValue);
+    });
+    
+    // Auto-save after flood fill
+    savePuzzleState();
+}
+
+// Replace all cells of a specific color in a single grid with the new color
+function replaceColorInGrid(gridData, targetColor, newColor, gridElement) {
+    const normalizedTargetColor = (targetColor === null || targetColor === undefined) ? 0 : targetColor;
+    const normalizedNewColor = (newColor === null || newColor === undefined) ? 0 : newColor;
+    const height = gridData.length;
+    const width = gridData[0]?.length || 0;
+    
+    // Replace all cells of the target color with the new color
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const cellColor = gridData[y][x];
+            const normalizedCellColor = (cellColor === null || cellColor === undefined) ? 0 : cellColor;
+            if (normalizedCellColor === normalizedTargetColor) {
+                gridData[y][x] = normalizedNewColor;
+            }
+        }
+    }
+    
+    // Re-render all cells in the grid
+    const cells = gridElement.querySelectorAll('.cell');
+    cells.forEach(cell => {
+        const cellY = parseInt(cell.dataset.y);
+        const cellX = parseInt(cell.dataset.x);
+        const colorValue = gridData[cellY]?.[cellX] ?? 0;
+        updateCellVisual(cell, colorValue);
+    });
+    
+    // Auto-save after color replacement
+    savePuzzleState();
+}
+
+// Replace all cells of a specific color in all grids with the new color
+function replaceColorInAllGrids(targetColor, newColor) {
+    const normalizedTargetColor = (targetColor === null || targetColor === undefined) ? 0 : targetColor;
+    const normalizedNewColor = (newColor === null || newColor === undefined) ? 0 : newColor;
+    
+    // Replace in all example grids
+    puzzleData.examples.forEach(example => {
+        const inputHeight = example.input.length;
+        const inputWidth = example.input[0]?.length || 0;
+        for (let y = 0; y < inputHeight; y++) {
+            for (let x = 0; x < inputWidth; x++) {
+                const cellColor = example.input[y][x];
+                const normalizedCellColor = (cellColor === null || cellColor === undefined) ? 0 : cellColor;
+                if (normalizedCellColor === normalizedTargetColor) {
+                    example.input[y][x] = normalizedNewColor;
+                }
+            }
+        }
+        
+        const outputHeight = example.output.length;
+        const outputWidth = example.output[0]?.length || 0;
+        for (let y = 0; y < outputHeight; y++) {
+            for (let x = 0; x < outputWidth; x++) {
+                const cellColor = example.output[y][x];
+                const normalizedCellColor = (cellColor === null || cellColor === undefined) ? 0 : cellColor;
+                if (normalizedCellColor === normalizedTargetColor) {
+                    example.output[y][x] = normalizedNewColor;
+                }
+            }
+        }
+    });
+    
+    // Replace in test input
+    const testInputHeight = puzzleData.test.input.length;
+    const testInputWidth = puzzleData.test.input[0]?.length || 0;
+    for (let y = 0; y < testInputHeight; y++) {
+        for (let x = 0; x < testInputWidth; x++) {
+            const cellColor = puzzleData.test.input[y][x];
+            const normalizedCellColor = (cellColor === null || cellColor === undefined) ? 0 : cellColor;
+            if (normalizedCellColor === normalizedTargetColor) {
+                puzzleData.test.input[y][x] = normalizedNewColor;
+            }
+        }
+    }
+    
+    // Replace in test output if it exists
+    if (puzzleData.test.output && puzzleData.test.output.length > 0) {
+        const testOutputHeight = puzzleData.test.output.length;
+        const testOutputWidth = puzzleData.test.output[0]?.length || 0;
+        for (let y = 0; y < testOutputHeight; y++) {
+            for (let x = 0; x < testOutputWidth; x++) {
+                const cellColor = puzzleData.test.output[y][x];
+                const normalizedCellColor = (cellColor === null || cellColor === undefined) ? 0 : cellColor;
+                if (normalizedCellColor === normalizedTargetColor) {
+                    puzzleData.test.output[y][x] = normalizedNewColor;
+                }
+            }
+        }
+    }
+    
+    // Re-render all grids
+    renderAll();
+    
+    // Auto-save after color replacement in all grids
+    savePuzzleState();
 }
 
 // Update cell visual appearance without re-rendering
@@ -699,20 +960,52 @@ function createGrid(gridData, width, height, onClickCallback) {
     const handleMouseDown = (e) => {
         if (e.button !== 0) return; // Only handle left mouse button
         e.preventDefault();
-        isMouseDown = true;
-        isDragging = false;
-        mouseDownTime = Date.now();
-        currentPaintingGrid = grid;
-        currentPaintingCallback = onClickCallback;
-        paintedCells.clear();
         
         const cell = e.target;
         if (cell.classList.contains('cell')) {
             const y = parseInt(cell.dataset.y);
             const x = parseInt(cell.dataset.x);
+            
+            // Check if Ctrl key is pressed
+            if (e.ctrlKey || e.metaKey) {
+                // Ctrl+Left Click: Replace all cells of the clicked color in current grid
+                const targetColor = gridData[y]?.[x] ?? 0;
+                replaceColorInGrid(gridData, targetColor, selectedColor, grid);
+                return; // Don't start drag painting
+            }
+            
+            // Normal left-click behavior
+            isMouseDown = true;
+            isDragging = false;
+            mouseDownTime = Date.now();
+            currentPaintingGrid = grid;
+            currentPaintingCallback = onClickCallback;
+            paintedCells.clear();
+            
             const cellKey = `${y},${x}`;
             paintedCells.add(cellKey);
             onClickCallback(y, x, cell);
+        }
+    };
+    
+    // Context menu handler (right-click)
+    const handleContextMenu = (e) => {
+        e.preventDefault(); // Prevent default context menu
+        
+        const cell = e.target;
+        if (cell.classList.contains('cell')) {
+            const y = parseInt(cell.dataset.y);
+            const x = parseInt(cell.dataset.x);
+            
+            // Check if Ctrl key is pressed
+            if (e.ctrlKey || e.metaKey) {
+                // Ctrl+Right Click: Replace all cells of the clicked color in all grids
+                const targetColor = gridData[y]?.[x] ?? 0;
+                replaceColorInAllGrids(targetColor, selectedColor);
+            } else {
+                // Normal right-click: Flood fill
+                handleCellRightClick(gridData, y, x, grid);
+            }
         }
     };
     
@@ -733,6 +1026,7 @@ function createGrid(gridData, width, height, onClickCallback) {
     grid.addEventListener('mousemove', handleMouseMove);
     grid.addEventListener('mouseup', handleMouseUp);
     grid.addEventListener('mouseleave', handleMouseLeave);
+    grid.addEventListener('contextmenu', handleContextMenu);
     
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
@@ -873,6 +1167,9 @@ function importPuzzle(jsonData) {
         initializeExamples();
         initializeTest();
         renderAll();
+        
+        // Auto-save after import
+        savePuzzleState();
         
     } catch (error) {
         alert('Error importing puzzle: ' + error.message);
